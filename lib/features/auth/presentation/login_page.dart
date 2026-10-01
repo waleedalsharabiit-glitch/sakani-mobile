@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../app/main_shell.dart';
+import '../../../core/constants/google_constants.dart';
 import '../data/auth_controller.dart';
 import 'register_page.dart';
-import '../../../app/main_shell.dart';
+
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -17,8 +20,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
+  bool _googleInitialized = false;
 
   @override
   void dispose() {
@@ -27,56 +34,161 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
- Future<void> _login() async {
-  if (!_formKey.currentState!.validate()) {
-    return;
+  Future<void> _initializeGoogleSignIn() async {
+    if (_googleInitialized) {
+      return;
+    }
+
+    await _googleSignIn.initialize(
+      serverClientId: GoogleConstants.webClientId,
+    );
+
+    _googleInitialized = true;
   }
 
-  setState(() {
-    _isLoading = true;
-  });
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-  try {
-    await ref
-        .read(authControllerProvider.notifier)
-        .login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+    setState(() {
+      _isLoading = true;
+    });
 
-    if (!mounted) return;
+    try {
+      await ref
+          .read(authControllerProvider.notifier)
+          .login(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-       builder: (_) => const MainShell(),
-      ),
-      (route) => false,
-    );
-  } catch (error) {
-    if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
-    final message = error.toString().replaceFirst(
-          'Exception: ',
-          '',
-        );
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const MainShell(),
+        ),
+        (route) => false,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      final message = error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-}
+
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    try {
+      await _initializeGoogleSignIn();
+
+      final GoogleSignInAccount account =
+          await _googleSignIn.authenticate();
+
+      final GoogleSignInAuthentication authentication =
+          account.authentication;
+
+      final idToken = authentication.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception(
+          'لم يتم الحصول على رمز Google',
+        );
+      }
+
+      await ref
+          .read(authControllerProvider.notifier)
+          .loginWithGoogle(
+            idToken: idToken,
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const MainShell(),
+        ),
+        (route) => false,
+      );
+    } on GoogleSignInException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      String message;
+
+      switch (error.code) {
+        case GoogleSignInExceptionCode.canceled:
+          message = 'تم إلغاء تسجيل الدخول باستخدام Google';
+          break;
+
+        case GoogleSignInExceptionCode.clientConfigurationError:
+          message = 'إعدادات Google غير صحيحة';
+          break;
+
+        default:
+          message = 'تعذر تسجيل الدخول باستخدام Google';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final message = error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final isLoading = _isLoading || _isGoogleLoading;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -205,13 +317,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       SizedBox(
                         height: 54,
                         child: FilledButton(
-                          onPressed: _isLoading ? null : _login,
+                          onPressed: isLoading ? null : _login,
                           child: _isLoading
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child:
-                                      CircularProgressIndicator(
+                                  child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                   ),
                                 )
@@ -221,6 +332,73 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
+                                ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: theme.colorScheme.outline
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                            child: Text(
+                              'أو',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: theme.colorScheme.outline
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      SizedBox(
+                        height: 54,
+                        child: OutlinedButton(
+                          onPressed:
+                              isLoading ? null : _loginWithGoogle,
+                          child: _isGoogleLoading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                  const Icon(
+  Icons.g_mobiledata_rounded,
+  size: 28,
+),
+                                    const SizedBox(width: 10),
+                                    const Text(
+                                      'المتابعة باستخدام Google',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                         ),
                       ),
@@ -238,17 +416,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                           ),
                           TextButton(
-  onPressed: () {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const RegisterPage(),
-      ),
-    );
-  },
-  child: const Text(
-    'إنشاء حساب',
-  ),
-),
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const RegisterPage(),
+                                      ),
+                                    );
+                                  },
+                            child: const Text(
+                              'إنشاء حساب',
+                            ),
+                          ),
                         ],
                       ),
 

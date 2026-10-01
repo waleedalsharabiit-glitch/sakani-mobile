@@ -1,21 +1,38 @@
-class Property {
-  const Property({
+class Favorite {
+  const Favorite({
+    required this.id,
+    required this.createdAt,
+    required this.property,
+  });
+
+  final String id;
+  final DateTime createdAt;
+  final FavoriteProperty property;
+
+  factory Favorite.fromJson(Map<String, dynamic> json) {
+    return Favorite(
+      id: json['id'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      property: FavoriteProperty.fromJson(
+        Map<String, dynamic>.from(json['property'] as Map),
+      ),
+    );
+  }
+}
+
+class FavoriteProperty {
+  const FavoriteProperty({
     required this.id,
     required this.title,
     required this.slug,
-    this.description,
+    required this.description,
     required this.price,
     required this.address,
     required this.city,
-    this.latitude,
-    this.longitude,
+    required this.latitude,
+    required this.longitude,
     required this.category,
-    this.image,
-    required this.imagesCount,
-    required this.reviewsCount,
-    required this.favoritesCount,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.image,
   });
 
   final String id;
@@ -27,16 +44,11 @@ class Property {
   final String city;
   final double? latitude;
   final double? longitude;
-  final PropertyCategory category;
+  final FavoriteCategory? category;
   final String? image;
-  final int imagesCount;
-  final int reviewsCount;
-  final int favoritesCount;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
-  factory Property.fromJson(Map<String, dynamic> json) {
-    return Property(
+  factory FavoriteProperty.fromJson(Map<String, dynamic> json) {
+    return FavoriteProperty(
       id: json['id'] as String,
       title: json['title'] as String? ?? '',
       slug: json['slug'] as String? ?? '',
@@ -46,27 +58,20 @@ class Property {
       city: json['city'] as String? ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      category: PropertyCategory.fromJson(
-        Map<String, dynamic>.from(
-          json['category'] as Map,
-        ),
-      ),
+      category: json['category'] != null
+          ? FavoriteCategory.fromJson(
+              Map<String, dynamic>.from(
+                json['category'] as Map,
+              ),
+            )
+          : null,
       image: json['image'] as String?,
-      imagesCount: json['imagesCount'] as int? ?? 0,
-      reviewsCount: json['reviewsCount'] as int? ?? 0,
-      favoritesCount: json['favoritesCount'] as int? ?? 0,
-      createdAt: DateTime.parse(
-        json['createdAt'] as String,
-      ),
-      updatedAt: DateTime.parse(
-        json['updatedAt'] as String,
-      ),
     );
   }
 }
 
-class PropertyCategory {
-  const PropertyCategory({
+class FavoriteCategory {
+  const FavoriteCategory({
     required this.id,
     required this.name,
     required this.slug,
@@ -76,10 +81,8 @@ class PropertyCategory {
   final String name;
   final String slug;
 
-  factory PropertyCategory.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    return PropertyCategory(
+  factory FavoriteCategory.fromJson(Map<String, dynamic> json) {
+    return FavoriteCategory(
       id: json['id'] as String,
       name: json['name'] as String? ?? '',
       slug: json['slug'] as String? ?? '',

@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/bookings/data/booking_providers.dart';
 import '../features/bookings/presentation/bookings_page.dart';
 import '../features/favorites/presentation/favorites_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/search/presentation/search_page.dart';
-
-class MainShell extends StatefulWidget {
+import '../features/favorites/data/favorite_providers.dart';
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
-  static _MainShellState? of(BuildContext context) {
-    return context.findAncestorStateOfType<_MainShellState>();
+  static MainShellState? of(BuildContext context) {
+    return context.findAncestorStateOfType<MainShellState>();
   }
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class MainShellState extends ConsumerState<MainShell> {
   int _currentIndex = 0;
 
   final _pages = const [
@@ -29,14 +31,22 @@ class _MainShellState extends State<MainShell> {
   ];
 
   void goToTab(int index) {
-    if (index < 0 || index >= _pages.length) {
-      return;
-    }
-
-    setState(() {
-      _currentIndex = index;
-    });
+  if (index < 0 || index >= _pages.length) {
+    return;
   }
+
+  setState(() {
+    _currentIndex = index;
+  });
+
+  if (index == 2) {
+    ref.invalidate(favoritesProvider);
+  }
+
+  if (index == 3) {
+    ref.invalidate(bookingsProvider);
+  }
+}
 
   @override
   Widget build(BuildContext context) {

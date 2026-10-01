@@ -1,9 +1,12 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/main_shell.dart';
 import '../../auth/data/auth_controller.dart';
+import '../../properties/data/property_providers.dart';
+import '../../properties/models/property.dart';
+import '../../properties/presentation/property_card.dart';
+import '../../properties/presentation/property_details_page.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -13,241 +16,530 @@ class HomePage extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final user = authState.value;
 
+    final propertiesAsync = ref.watch(
+      propertiesProvider(
+        const PropertyQuery(
+          sort: 'newest',
+          page: 1,
+        ),
+      ),
+    );
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'سَكَني',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-
-                // Welcome
-                Text(
-                  'مرحباً بك في سَكَني 👋',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(
+                propertiesProvider(
+                  const PropertyQuery(
+                    sort: 'newest',
+                    page: 1,
+                  ),
                 ),
+              );
 
-                const SizedBox(height: 10),
-
-                Text(
-                  user?.name ?? 'المستخدم',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.65),
+              await ref.read(
+                propertiesProvider(
+                  const PropertyQuery(
+                    sort: 'newest',
+                    page: 1,
+                  ),
+                ).future,
+              );
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _HomeHeader(
+                    userName: user?.name,
+                    onProfilePressed: () {
+                      MainShell.of(context)?.goToTab(4);
+                    },
                   ),
                 ),
 
-                const SizedBox(height: 32),
-
-                // Main discovery card
-                Card(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+                    padding: const EdgeInsets.fromLTRB(
+                      20,
+                      8,
+                      20,
+                      0,
+                    ),
+                    child: _SearchBanner(
+                      onTap: () {
+                        MainShell.of(context)?.goToTab(1);
+                      },
+                    ),
+                  ),
+                ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      20,
+                      28,
+                      20,
+                      14,
+                    ),
+                    child: Row(
                       children: [
-                        Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: Icon(
-                            Icons.home_work_rounded,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-
-                        const SizedBox(height: 22),
-
-                        const Text(
-                          'اكتشف مكانك المثالي',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        Text(
-                          'ابحث عن العقارات المناسبة لك واستكشف تفاصيلها بسهولة.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.65),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: FilledButton.icon(
-                            onPressed: () {
-                              // الانتقال إلى تبويب البحث
-                              MainShell.of(context)?.goToTab(1);
-                            },
-                            icon: const Icon(
-                              Icons.search_rounded,
-                            ),
-                            label: const Text(
-                              'استكشف العقارات',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        const Expanded(
+                          child: Text(
+                            'أحدث العقارات',
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            MainShell.of(context)?.goToTab(1);
+                          },
+                          child: const Text('عرض الكل'),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 24),
-
-                // Quick actions
-                const Text(
-                  'الوصول السريع',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.search_rounded,
-                        title: 'البحث',
-                        onTap: () {
-                          MainShell.of(context)?.goToTab(1);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.favorite_rounded,
-                        title: 'المفضلة',
-                        onTap: () {
-                          MainShell.of(context)?.goToTab(2);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.calendar_month_rounded,
-                        title: 'حجوزاتي',
-                        onTap: () {
-                          MainShell.of(context)?.goToTab(3);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.person_rounded,
-                        title: 'حسابي',
-                        onTap: () {
-                          MainShell.of(context)?.goToTab(4);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Coming soon section
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.explore_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 30,
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'اعثر على مكانك بسهولة',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                propertiesAsync.when(
+                  loading: () {
+                    return const SliverToBoxAdapter(
+                      child: _PropertiesLoading(),
+                    );
+                  },
+                  error: (error, _) {
+                    return SliverToBoxAdapter(
+                      child: _PropertiesError(
+                        onRetry: () {
+                          ref.invalidate(
+                            propertiesProvider(
+                              const PropertyQuery(
+                                sort: 'newest',
+                                page: 1,
                               ),
                             ),
-                            SizedBox(height: 5),
-                            Text(
-                              'استكشف العقارات القريبة والمناسبة لك.',
-                              style: TextStyle(
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    ],
+                    );
+                  },
+                  data: (result) {
+                    if (result.properties.isEmpty) {
+                      return const SliverToBoxAdapter(
+                        child: _EmptyProperties(),
+                      );
+                    }
+
+                    return SliverToBoxAdapter(
+                      child: _PropertiesSection(
+                        properties: result.properties,
+                      ),
+                    );
+                  },
+                ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      20,
+                      28,
+                      20,
+                      24,
+                    ),
+                    child: _QuickActions(
+                      onSearch: () {
+                        MainShell.of(context)?.goToTab(1);
+                      },
+                      onFavorites: () {
+                        MainShell.of(context)?.goToTab(2);
+                      },
+                      onBookings: () {
+                        MainShell.of(context)?.goToTab(3);
+                      },
+                      onProfile: () {
+                        MainShell.of(context)?.goToTab(4);
+                      },
+                    ),
                   ),
+                ),
+
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 20),
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.userName,
+    required this.onProfilePressed,
+  });
+
+  final String? userName;
+  final VoidCallback onProfilePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName =
+        userName?.trim().isNotEmpty == true
+            ? userName!.trim()
+            : 'المستخدم';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        22,
+        20,
+        8,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'مرحباً بك 👋',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Material(
+            color: Theme.of(context)
+                .colorScheme
+                .primary
+                .withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: onProfilePressed,
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(
+                  Icons.person_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchBanner extends StatelessWidget {
+  const _SearchBanner({
+    required this.onTap,
+  });
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 15,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.search_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 25,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'ابحث عن عقار، مدينة أو منطقة...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.tune_rounded,
+                size: 21,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.45),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PropertiesSection extends StatelessWidget {
+  const _PropertiesSection({
+    required this.properties,
+  });
+
+  final List<Property> properties;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 315,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+        ),
+        scrollDirection: Axis.horizontal,
+        itemCount: properties.length,
+        separatorBuilder: (_, _) {
+          return const SizedBox(width: 14);
+        },
+        itemBuilder: (context, index) {
+          final property = properties[index];
+
+          return SizedBox(
+            width: 300,
+            child: PropertyCard(
+              property: property,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => PropertyDetailsPage(
+                      propertyId: property.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PropertiesLoading extends StatelessWidget {
+  const _PropertiesLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 315,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+        ),
+        scrollDirection: Axis.horizontal,
+        itemCount: 3,
+        separatorBuilder: (_, _) {
+          return const SizedBox(width: 14);
+        },
+        itemBuilder: (_, _) {
+          return Container(
+            width: 300,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PropertiesError extends StatelessWidget {
+  const _PropertiesError({
+    required this.onRetry,
+  });
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 30,
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 45,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'تعذر تحميل العقارات',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyProperties extends StatelessWidget {
+  const _EmptyProperties();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 35,
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.home_work_outlined,
+            size: 52,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.35),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'لا توجد عقارات حالياً',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({
+    required this.onSearch,
+    required this.onFavorites,
+    required this.onBookings,
+    required this.onProfile,
+  });
+
+  final VoidCallback onSearch;
+  final VoidCallback onFavorites;
+  final VoidCallback onBookings;
+  final VoidCallback onProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'الوصول السريع',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.search_rounded,
+                title: 'البحث',
+                onTap: onSearch,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.favorite_rounded,
+                title: 'المفضلة',
+                onTap: onFavorites,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.calendar_month_rounded,
+                title: 'حجوزاتي',
+                onTap: onBookings,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.person_rounded,
+                title: 'حسابي',
+                onTap: onProfile,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -265,7 +557,7 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Material(
       color: Theme.of(context).colorScheme.surface,
@@ -273,19 +565,28 @@ class _QuickActionCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.symmetric(
-            vertical: 20,
+            vertical: 18,
             horizontal: 12,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.07),
+            ),
           ),
           child: Column(
             children: [
               Icon(
                 icon,
-                color: color,
-                size: 30,
+                color: primary,
+                size: 28,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 9),
               Text(
                 title,
                 style: const TextStyle(
